@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title id="page-title">K-Cornhole 학교에디션 v01</title>
+    <title id="page-title">K-Cornhole school edition ver.01</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -178,18 +178,36 @@
     </div>
 </nav>
 
+<!-- 🚪 로그인 / 회원가입 로비 화면 -->
 <div id="lobby-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
     <h1 style="color: var(--gold); margin-bottom: 10px;">KCA-School Edition</h1>
     <p style="margin-bottom: 30px; color: #ccc;">학교 전용 다중 통합 플랫폼</p>
     
-    <div style="background: white; padding: 30px; border-radius: 12px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-        <input type="text" id="school-room-id" placeholder="학교 고유 코드 입력 (예: yuseong)" style="width: 100%; padding: 15px; margin-bottom: 8px; border: 2px solid #eee; border-radius: 8px; font-size: 1.1rem; font-weight: bold; text-align: center; color: black;">
-        
-        <p style="font-size: 0.8rem; color: #d63031; margin-top: 0; margin-bottom: 18px; font-weight: bold; text-align: center;">
-            * 학교 코드는 영문 소문자와 숫자만 입력 가능합니다.<br>(한글, 대문자, 공백은 입력할 수 없습니다)
-        </p>
-        
-        <button class="btn btn-dark" style="background: var(--blue); font-size: 1.2rem; padding: 15px; height: 55px;" onclick="enterSchoolRoom()">대회장 입장하기</button>
+    <div style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); color: black;">
+        <!-- 탭 메뉴 -->
+        <div style="display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee;">
+            <div id="tab-login" onclick="switchAuthTab('login')" style="flex: 1; text-align: center; padding: 10px; font-weight: bold; cursor: pointer; border-bottom: 3px solid var(--blue); color: var(--blue);">로그인</div>
+            <div id="tab-register" onclick="switchAuthTab('register')" style="flex: 1; text-align: center; padding: 10px; font-weight: bold; cursor: pointer; color: #aaa;">회원가입(방 생성)</div>
+        </div>
+
+        <!-- 로그인 폼 -->
+        <div id="form-login">
+            <input type="text" id="login-id" placeholder="아이디 (학교 고유 코드)" style="width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <input type="password" id="login-pw" placeholder="비밀번호" style="width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <button class="btn btn-dark" style="background: var(--blue); font-size: 1.2rem; padding: 15px; height: 55px; width: 100%;" onclick="processLogin()">대회장 입장하기</button>
+        </div>
+
+        <!-- 회원가입 폼 (초기엔 숨김) -->
+        <div id="form-register" style="display: none;">
+            <p style="font-size: 0.75rem; color: #d63031; margin-top: 0; margin-bottom: 10px; font-weight: bold; text-align: center;">
+                * 아이디는 영문 소문자와 숫자만 가능합니다.
+            </p>
+            <input type="text" id="reg-id" placeholder="사용할 아이디" style="width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <input type="password" id="reg-pw" placeholder="사용할 비밀번호" style="width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <input type="text" id="reg-school" placeholder="학교명 (예: 유성중학교)" style="width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <input type="text" id="reg-admin" placeholder="담당 운영자 이름" style="width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid #eee; border-radius: 8px; font-size: 1rem; font-weight: bold;">
+            <button class="btn btn-dark" style="background: var(--green); font-size: 1.2rem; padding: 15px; height: 55px; width: 100%;" onclick="processRegister()">계정 및 방 생성하기</button>
+        </div>
     </div>
 </div>
 
@@ -696,39 +714,90 @@ const db = firebase.database();
 
 let hqAuth = localStorage.getItem('kca_hq_code') || "1234", refAuth = localStorage.getItem('kca_ref_code') || "1234", pendingV = "", pendingMatch = null, categories = [], currentCatIdx = 0, refS = {red:0, blue:0}, refI = {r3:0, r1:0, b3:0, b1:0}, tRef = null, rLog = [], activeM = null, tournamentName = "데이터 실시간 통합", isTimerRunning = false;
 let currentMatchKey = null, activeMatchesData = {}, liveActiveKey = null;
+// 🚪 여기서부터 로그인, 회원가입, 방 입장 로직입니다
 let currentSchoolId = "";
 
-// 🚪 방 입장 로직
-function enterSchoolRoom() {
-    const roomId = document.getElementById('school-room-id').value.trim();
-    if(!roomId) { alert("학교 고유 코드를 입력해주세요!"); return; }
-    currentSchoolId = roomId.replace(/[^a-zA-Z0-9_-]/g, ""); 
+// 탭 전환 애니메이션
+function switchAuthTab(tab) {
+    document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
     
-    db.ref('kca_school_edition/' + currentSchoolId + '/info').once('value').then((snapshot) => {
+    document.getElementById('tab-login').style.color = tab === 'login' ? 'var(--blue)' : '#aaa';
+    document.getElementById('tab-login').style.borderBottom = tab === 'login' ? '3px solid var(--blue)' : 'none';
+    
+    document.getElementById('tab-register').style.color = tab === 'register' ? 'var(--blue)' : '#aaa';
+    document.getElementById('tab-register').style.borderBottom = tab === 'register' ? '3px solid var(--blue)' : 'none';
+}
+
+// 회원가입 (새로운 학교 방 생성)
+function processRegister() {
+    const idRaw = document.getElementById('reg-id').value.trim();
+    const pw = document.getElementById('reg-pw').value.trim();
+    const school = document.getElementById('reg-school').value.trim();
+    const admin = document.getElementById('reg-admin').value.trim();
+
+    if(!idRaw || !pw || !school || !admin) return alert("모든 정보를 입력해주세요!");
+
+    const safeId = idRaw.replace(/[^a-zA-Z0-9_-]/g, "");
+    if(safeId !== idRaw) return alert("아이디는 영문 소문자와 숫자만 사용 가능합니다.");
+
+    db.ref('kca_school_edition/' + safeId + '/info').once('value').then((snapshot) => {
         if (snapshot.exists()) {
-            enterSuccess();
+            alert("이미 누군가 사용 중인 아이디(코드)입니다. 다른 아이디를 입력해주세요.");
         } else {
-            if (confirm("존재하지 않는 학교 코드입니다. [" + currentSchoolId + "] 방을 새로 생성하시겠습니까?")) {
-                db.ref('kca_school_edition/' + currentSchoolId + '/info').set({
-                    createdAt: firebase.database.ServerValue.TIMESTAMP,
-                    schoolCode: currentSchoolId
-                }).then(() => {
-                    alert("새로운 학교 방이 생성되었습니다!");
-                    enterSuccess();
-                });
-            }
+            // 회원정보와 함께 방 생성
+            db.ref('kca_school_edition/' + safeId + '/info').set({
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                schoolCode: safeId,
+                password: pw,
+                schoolName: school,
+                adminName: admin
+            }).then(() => {
+                alert("회원가입 및 방 생성이 완료되었습니다!\n방금 생성한 계정으로 자동 입장합니다.");
+                currentSchoolId = safeId;
+                enterSuccess();
+            });
         }
-    }).catch((error) => {
-        console.error("DB 에러:", error);
-        alert("데이터베이스 연결에 실패했습니다.");
+    });
+}
+
+// 로그인 (기존 방 입장)
+function processLogin() {
+    const idRaw = document.getElementById('login-id').value.trim();
+    const pw = document.getElementById('login-pw').value.trim();
+
+    if(!idRaw || !pw) return alert("아이디와 비밀번호를 입력해주세요.");
+
+    const safeId = idRaw.replace(/[^a-zA-Z0-9_-]/g, "");
+    
+    db.ref('kca_school_edition/' + safeId + '/info').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+            const roomInfo = snapshot.val();
+            // 파이어베이스에 저장된 비밀번호와 일치하는지 확인
+            if(roomInfo.password === pw) {
+                currentSchoolId = safeId;
+                enterSuccess();
+            } else {
+                alert("비밀번호가 일치하지 않습니다.");
+            }
+        } else {
+            alert("존재하지 않는 아이디입니다. 회원가입을 먼저 진행해주세요.");
+        }
     });
 }
 
 function enterSuccess() {
     document.getElementById('lobby-overlay').style.display = 'none';
+    
+    // 💡 핵심: 현재 접속한 방의 아이디를 브라우저 메모리(Session)에 저장합니다.
+    sessionStorage.setItem('kca_school_id', currentSchoolId);
+    
     alert("[" + currentSchoolId + "] 대회장으로 접속했습니다.");
     attachRoomListeners();
-    showView('practice');
+    
+    // 새로고침 전 마지막 뷰를 유지하거나 기본 뷰로 이동
+    const lastView = sessionStorage.getItem('kca_last_view') || 'practice';
+    showView(lastView);
 }
 
 function attachRoomListeners() {
@@ -737,6 +806,7 @@ function attachRoomListeners() {
     db.ref(basePath + '/kca_info/name').on('value', (s) => { tournamentName = s.val() || "KCA-School 통합 시스템"; updateTitleUIs(); });
     db.ref(basePath + '/activeMatches').on('value', (s) => { activeMatchesData = s.val() || {}; refreshUIs(); renderLiveMatchesUI(); updateLiveBigBoardUI(); });
 }
+// 여기까지 전체 코드 끝 🚪
 
 let pracState = { red: '팀 레드', blue: '팀 블루', targetScore: 21, maxRounds: 0, timerMode: 15 };
 let pracS = { red: 0, blue: 0 };
@@ -746,12 +816,30 @@ let pracTimerRef = null;
 let pracTimerRunning = false;
 let pracHistory = JSON.parse(localStorage.getItem('kca_prac_history') || "[]");
 
+// 새로고침 시에도 접속 유지 로직
 window.onload = function() {
     renderPracticeHistory();
+
+    // 💡 메모리에 로그인된 학교 아이디가 있는지 확인합니다.
+    const savedSchoolId = sessionStorage.getItem('kca_school_id');
     const lastView = sessionStorage.getItem('kca_last_view') || 'practice';
-    const restrictedViews = ['referee', 'hq'];
-    if (restrictedViews.includes(lastView)) { tryAccess(lastView); } 
-    else { showView(lastView); }
+
+    if (savedSchoolId) {
+        // 이미 로그인된 상태라면, 로비를 숨기고 자동으로 파이프를 연결해 줍니다.
+        currentSchoolId = savedSchoolId;
+        document.getElementById('lobby-overlay').style.display = 'none';
+        attachRoomListeners();
+        
+        const restrictedViews = ['referee', 'hq'];
+        if (restrictedViews.includes(lastView)) { 
+            tryAccess(lastView); 
+        } else { 
+            showView(lastView); 
+        }
+    } else {
+        // 로그인 정보가 없으면 로비 화면을 강제로 띄웁니다.
+        document.getElementById('lobby-overlay').style.display = 'flex';
+    }
 };
 
 function updateTournamentName() { 
